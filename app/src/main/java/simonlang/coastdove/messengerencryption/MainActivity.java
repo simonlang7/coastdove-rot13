@@ -15,7 +15,7 @@ import simonlang.coastdove.lib.CoastDoveModules;
 public class MainActivity extends AppCompatActivity {
     public static int OVERLAY_PERMISSION_REQUEST_CODE = 2236;
     public static final String PREF_VERSION = "appVersion";
-    public static final int APP_VERSION = 3;
+    public static final int APP_VERSION = 4;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,7 +31,7 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         int currentVersion = preferences.getInt(PREF_VERSION, 0);
         if (APP_VERSION > currentVersion) {
-            CoastDoveModules.registerModule(this, EncryptionService.class, "Hangouts ROT13", "com.google.android.talk", "com.whatsapp");
+            CoastDoveModules.registerModule(this, EncryptionService.class, "ROT13 Encryption", "com.google.android.talk", "com.whatsapp");
             preferences.edit().putInt(PREF_VERSION, APP_VERSION).apply();
         }
     }

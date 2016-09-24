@@ -5,8 +5,6 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.util.Pair;
 import android.support.v4.util.SparseArrayCompat;
-import android.util.Log;
-import android.util.SparseIntArray;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.AbsListView;
@@ -25,7 +23,7 @@ import simonlang.coastdove.lib.ViewTreeNode;
 public class ChatOverlay extends Overlay {
     private EncryptionService mService;
     private ListView mListView;
-    private HangoutsMessageListAdapter mListAdapter;
+    private MessageListAdapter mListAdapter;
     private ViewTreeNode mIdListNode;
     private ScrollPosition mScrollPosition;
     private SparseArrayCompat<ViewTreeNode> mMessages;
@@ -34,12 +32,12 @@ public class ChatOverlay extends Overlay {
     public ChatOverlay(@NonNull EncryptionService service, int resource) {
         super(service, resource);
         mService = service;
-        mListAdapter = new HangoutsMessageListAdapter(service);
+        mListAdapter = new MessageListAdapter(service);
         mMessages = new SparseArrayCompat<>(60);
         mLastListItemMapping = new Pair<>(0, 0);
     }
 
-    public void addMessages(ViewTreeNode idListNode, ScrollPosition scrollPosition) {
+    public void addMessages(ViewTreeNode idListNode, LinkedList<ViewTreeNode> messages, ScrollPosition scrollPosition) {
         if (idListNode == null || scrollPosition == null) {
             mMessages.clear();
             mListAdapter.clear();
@@ -52,12 +50,6 @@ public class ChatOverlay extends Overlay {
         }
 
         mScrollPosition = scrollPosition;
-        LinkedList<ViewTreeNode> messages = idListNode.findNodes(new ViewTreeNode.Filter() {
-            @Override
-            public boolean filter(ViewTreeNode node) {
-                return node.viewIDResourceName().endsWith("id/messageContentFrame");
-            }
-        });
         Iterator<ViewTreeNode> it = messages.iterator();
         if (messages.size() != scrollPosition.getToIndex() + 1 - scrollPosition.getFromIndex()) {
             return;

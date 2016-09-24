@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.accessibility.AccessibilityNodeInfo;
 
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.Set;
 
 import simonlang.coastdove.lib.AppMetaInformation;
@@ -71,17 +72,19 @@ public class EncryptionService extends CoastDoveListenerService {
         return encrypted.toString();
     }
 
-
+    private MessengerData mMessengerData;
     private ChatOverlay mChatOverlay;
     private SendButtonOverlay mSendButtonOverlay;
     private ViewTreeNode mSendButtonNode;
     private ViewTreeNode mMessageInputNode;
     private ViewTreeNode mListNode;
+    private boolean mSendMessage;
 
     @Override
     protected void onServiceBound() {
         mChatOverlay = new ChatOverlay(this, R.layout.chat_overlay);
         mSendButtonOverlay = new SendButtonOverlay(this);
+        mSendMessage = false;
     }
 
     @Override
@@ -109,6 +112,16 @@ public class EncryptionService extends CoastDoveListenerService {
 
     @Override
     protected void onAppOpened() {
+        switch (getLastAppPackageName()) {
+            case MessengerData.hangouts:
+                mMessengerData = MessengerData.hangoutsData;
+                break;
+            case MessengerData.whatsapp:
+                mMessengerData = MessengerData.whatsappData;
+                break;
+            default:
+                mMessengerData = null;
+        }
     }
 
     @Override
@@ -118,7 +131,7 @@ public class EncryptionService extends CoastDoveListenerService {
 
     @Override
     protected void onActivityDetected(String activity) {
-        if (activity.endsWith(".ConversationActivity")) {
+        if (activity.endsWith(messengerData().getConversationActivity())) {
             setOverlayBounds();
             mChatOverlay.show();
             mSendButtonOverlay.show();
@@ -131,14 +144,16 @@ public class EncryptionService extends CoastDoveListenerService {
 
     @Override
     protected void onLayoutsDetected(Set<String> set) {
-        if (getLastActivity().endsWith(".ConversationActivity")) {
+        if (messengerData() == null)
+            return;
+        if (getLastActivity().endsWith(messengerData().getConversationActivity())) {
 //            if (getLastScrollPosition() != null &&
 //                getLastScrollPosition().getToIndex() == getLastScrollPosition().getItemCount() - 1)
 //                requestAction("id/list", AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD);
 
-            requestViewTree("id/list", true);
-            requestViewTree("id/message_text", false);
-            requestViewTree("id/floating_send_button_wrapper", false);
+            requestViewTree(messengerData().getListTreeID(), true);
+            requestViewTree(messengerData().getMessageInputFieldID(), false);
+            requestViewTree(messengerData().getSendButtonID(), false);
         }
     }
 
@@ -159,15 +174,28 @@ public class EncryptionService extends CoastDoveListenerService {
 
     @Override
     protected void onViewTreeReceived(ViewTreeNode node) {
-        if (node != null && node.viewIDResourceName().endsWith("id/list")) {
-            mChatOverlay.addMessages(node, getLastScrollPosition());
+        if (messengerData() == null)
+            return;
+        if (node != null && node.viewIDResourceName().endsWith(messengerData().getListTreeID())) {
+            LinkedList<ViewTreeNode> messages = node.findNodes(messengerData().getMessageFilter());
+            mChatOverlay.addMessages(node, messages, getLastScrollPosition());
             setOverlayBounds();
             mListNode = node;
         }
-        else if (node != null && node.viewIDResourceName().endsWith("id/message_text")) {
+        else if (node != null && node.viewIDResourceName().endsWith(messengerData().getMessageInputFieldID())) {
             mMessageInputNode = node;
+            if (mSendMessage) {
+                String original = mMessageInputNode.text();
+                String encrypted = "ROT13{" + encrypt(original) + "}";
+                Bundle args = new Bundle();
+                args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, encrypted);
+
+                requestAction(mMessageInputNode, AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_TEXT, args);
+                requestAction(mSendButtonNode, AccessibilityNodeInfo.AccessibilityAction.ACTION_CLICK);
+                mSendMessage = false;
+            }
         }
-        else if (node != null && node.viewIDResourceName().endsWith("id/floating_send_button_wrapper")) {
+        else if (node != null && node.viewIDResourceName().endsWith(messengerData().getSendButtonID())) {
             mSendButtonNode = node;
             setOverlayBounds();
         }
@@ -175,8 +203,10 @@ public class EncryptionService extends CoastDoveListenerService {
 
     @Override
     protected void onScrollPositionDetected(ScrollPosition scrollPosition) {
-        if (getLastActivity().endsWith(".ConversationActivity")) {
-            requestViewTree("id/list", true);
+        if (messengerData() == null)
+            return;
+        if (getLastActivity().endsWith(messengerData().getConversationActivity())) {
+            requestViewTree(messengerData().getListTreeID(), true);
         }
     }
 
@@ -191,18 +221,21 @@ public class EncryptionService extends CoastDoveListenerService {
     }
 
     public void encryptMessageText() {
+        if (messengerData() == null)
+            return;
         if (mMessageInputNode == null)
             return;
-        String original = mMessageInputNode.text();
-        String encrypted = "ROT13{" + encrypt(original) + "}";
-        Bundle args = new Bundle();
-        args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, encrypted);
+        mSendMessage = true;
+        requestViewTree(messengerData().getMessageInputFieldID(), false);
+    }
 
-        requestAction(mMessageInputNode, AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_TEXT, args);
-        requestAction(mSendButtonNode, AccessibilityNodeInfo.AccessibilityAction.ACTION_CLICK);
+    public MessengerData messengerData() {
+        return mMessengerData;
     }
 
     private void setOverlayBounds() {
+        if (messengerData() == null)
+            return;
         if (mListNode != null) {
             Rect bounds = new Rect();
             mListNode.getBoundsInScreen(bounds);

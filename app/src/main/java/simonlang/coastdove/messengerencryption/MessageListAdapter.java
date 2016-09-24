@@ -14,13 +14,13 @@ import android.widget.TextView;
 import simonlang.coastdove.lib.ViewTreeNode;
 
 /**
- * Adapter to display Hangouts messages
+ * Adapter to display messages
  */
-public class HangoutsMessageListAdapter extends ArrayAdapter<ViewTreeNode> {
+public class MessageListAdapter extends ArrayAdapter<ViewTreeNode> {
     private LayoutInflater mInflater;
     private EncryptionService mService;
 
-    public HangoutsMessageListAdapter(EncryptionService service) {
+    public MessageListAdapter(EncryptionService service) {
         super(service, R.layout.list_item_message);
         mService = service;
         mInflater = LayoutInflater.from(getContext());
@@ -46,18 +46,8 @@ public class HangoutsMessageListAdapter extends ArrayAdapter<ViewTreeNode> {
             holder = (ViewHolder)convertView.getTag();
 
         ViewTreeNode item = getItem(position);
-        boolean alignRight = item.hasNode(new ViewTreeNode.Filter() {
-            @Override
-            public boolean filter(ViewTreeNode viewTreeNode) {
-                return viewTreeNode.viewIDResourceName().endsWith("id/message_bubble_left_margin_placeholder");
-            }
-        });
-        ViewTreeNode textNode = item.findNode(new ViewTreeNode.Filter() {
-            @Override
-            public boolean filter(ViewTreeNode viewTreeNode) {
-                return viewTreeNode.viewIDResourceName().endsWith("id/messageText");
-            }
-        });
+        boolean alignRight = item.hasNode(mService.messengerData().getAlignRightIndicator());
+        ViewTreeNode textNode = item.findNode(mService.messengerData().getTextNodeFilter());
         holder.message.setGravity(alignRight ? Gravity.RIGHT : Gravity.LEFT);
         holder.messageContainer.setBackground(getContext().getDrawable(alignRight ? R.drawable.message_bubble_right_bg : R.drawable.message_bubble_left_bg));
         if (textNode != null)
@@ -72,13 +62,7 @@ public class HangoutsMessageListAdapter extends ArrayAdapter<ViewTreeNode> {
         holder.messageDate.setText("");
 
         // Image button
-        final ViewTreeNode imageNode = item.findNode(new ViewTreeNode.Filter() {
-            @Override
-            public boolean filter(ViewTreeNode viewTreeNode) {
-                return viewTreeNode.getContentDescription() != null &&
-                        viewTreeNode.getContentDescription().equals("Photo");
-            }
-        });
+        final ViewTreeNode imageNode = item.findNode(mService.messengerData().getImageNodeFilter());
         if (imageNode != null) {
             holder.imageButton.setVisibility(View.VISIBLE);
             holder.imageButton.setOnClickListener(new View.OnClickListener() {
