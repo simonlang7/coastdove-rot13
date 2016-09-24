@@ -68,8 +68,11 @@ public class EncryptionService extends CoastDoveListenerService {
 
     @Override
     protected void onLayoutsDetected(Set<String> set) {
-        if (getLastActivity().endsWith(".ConversationActivity"))
-            requestViewTree("id/list", true);
+        if (getLastActivity().endsWith(".ConversationActivity") &&
+                getLastScrollPosition() != null &&
+                getLastScrollPosition().getToIndex() == getLastScrollPosition().getItemCount() - 1) {
+            requestAction("id/list", AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD);
+        }
     }
 
     @Override
@@ -90,7 +93,7 @@ public class EncryptionService extends CoastDoveListenerService {
     @Override
     protected void onViewTreeReceived(ViewTreeNode node) {
         if (node != null && node.viewIDResourceName().endsWith("id/list")) {
-            mChatOverlay.addMessages(node);
+            mChatOverlay.addMessages(node, getLastScrollPosition());
             setOverlayBounds();
             if (node.getRangeInfo() != null)
                 Log.d("EncryptionService", "Range (" + node.getRangeInfo().getType() + "): " + node.getRangeInfo().getCurrent() + " between " +
@@ -100,7 +103,8 @@ public class EncryptionService extends CoastDoveListenerService {
 
     @Override
     protected void onScrollPositionDetected(ScrollPosition scrollPosition) {
-        Log.d("EncryptionService", "Scroll position: " + scrollPosition.getFromIndex() + " to " + scrollPosition.getToIndex() + " of " + scrollPosition.getItemCount());
+        if (getLastActivity().endsWith(".ConversationActivity"))
+            requestViewTree("id/list", true);
     }
 
     @Override
@@ -120,7 +124,5 @@ public class EncryptionService extends CoastDoveListenerService {
             tree.getBoundsInScreen(bounds);
             mChatOverlay.setBounds(bounds);
         }
-        else
-            requestViewTree("id/list", true);
     }
 }

@@ -1,12 +1,22 @@
 package simonlang.coastdove.messengerencryption;
 
 import android.os.Build;
+import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.v4.util.Pair;
+import android.support.v4.util.SparseArrayCompat;
+import android.util.Log;
+import android.util.SparseIntArray;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.widget.AbsListView;
 import android.widget.Button;
 import android.widget.ListView;
 
+import java.util.Iterator;
+import java.util.LinkedList;
+
+import simonlang.coastdove.lib.ScrollPosition;
 import simonlang.coastdove.lib.ViewTreeNode;
 
 /**
@@ -17,23 +27,58 @@ public class ChatOverlay extends Overlay {
     private ListView mListView;
     private HangoutsMessageListAdapter mListAdapter;
     private ViewTreeNode mIdListNode;
+    private ScrollPosition mScrollPosition;
+    private SparseArrayCompat<ViewTreeNode> mMessages;
+    private Pair<Integer, Integer> mLastListItemMapping;
 
     public ChatOverlay(@NonNull EncryptionService service, int resource) {
         super(service, resource);
         mService = service;
         mListAdapter = new HangoutsMessageListAdapter(service);
+        mMessages = new SparseArrayCompat<>(60);
+        mLastListItemMapping = new Pair<>(0, 0);
     }
 
-    public void addMessages(ViewTreeNode idListNode) {
-        this.mIdListNode = idListNode;
-        mListAdapter.clear();
-        mListAdapter.addAll(idListNode.findNodes(new ViewTreeNode.Filter() {
+    public void addMessages(ViewTreeNode idListNode, ScrollPosition scrollPosition) {
+        if (idListNode == null || scrollPosition == null) {
+            mMessages.clear();
+            mListAdapter.clear();
+            return;
+        }
+
+        mIdListNode = idListNode;
+        if (mScrollPosition == null || mScrollPosition.getItemCount() != scrollPosition.getItemCount()) {
+            mMessages.clear();
+        }
+
+        mScrollPosition = scrollPosition;
+        LinkedList<ViewTreeNode> messages = idListNode.findNodes(new ViewTreeNode.Filter() {
             @Override
             public boolean filter(ViewTreeNode node) {
                 return node.viewIDResourceName().endsWith("id/messageContentFrame");
             }
-        }));
+        });
+        Iterator<ViewTreeNode> it = messages.iterator();
+        if (messages.size() != scrollPosition.getToIndex() + 1 - scrollPosition.getFromIndex()) {
+            return;
+        }
+        for (int i = scrollPosition.getFromIndex(); i <= scrollPosition.getToIndex() && it.hasNext(); ++i) {
+            mMessages.put(i, it.next());
+        }
 
+        mListAdapter.clear();
+//        mListAdapter.addAll(messages);
+        for (int i = 0; i < mMessages.size(); ++i) {
+            int key = mMessages.keyAt(i);
+            mListAdapter.add(mMessages.get(key));
+//            Log.d("Message", key + ": " + mMessages.get(key).findNode(new ViewTreeNode.Filter() {
+//                @Override
+//                public boolean filter(ViewTreeNode viewTreeNode) {
+//                    return viewTreeNode.viewIDResourceName().endsWith("id/messageText");
+//                }
+//            }).text());
+        }
+        mLastListItemMapping = new Pair<>(mMessages.size() - 1, scrollPosition.getItemCount() - 1);
     }
 
     @Override
@@ -47,15 +92,52 @@ public class ChatOverlay extends Overlay {
             previous.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    mService.requestAction(mIdListNode, AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_UP);
+                    mService.requestAction(mIdListNode, AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_BACKWARD);
                 }
             });
             next.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    mService.requestAction(mIdListNode, AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN);
+                    Bundle args = new Bundle();
+                    args.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_ROW_INT, 103);
+                    mService.requestAction(mIdListNode, AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD);
                 }
             });
         }
+
+        mListView.setOnScrollListener(new AbsListView.OnScrollListener() {
+            private boolean mScrollingUp = false;
+            private int mPrevFirstVisibileItem = 0;
+
+            @Override
+            public void onScrollStateChanged(AbsListView view, int scrollState) {
+                if (mPrevFirstVisibileItem > view.getFirstVisiblePosition())
+                    mScrollingUp = true;
+                else
+                    mScrollingUp = false;
+                if (scrollState == SCROLL_STATE_IDLE) {
+                    mPrevFirstVisibileItem = view.getFirstVisiblePosition();
+
+                    Bundle args = new Bundle();
+
+                    if (view.getFirstVisiblePosition() == 0) {
+                        mService.requestAction(mIdListNode, AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_BACKWARD);
+                    }
+                    else if (view.getLastVisiblePosition() == view.getCount() - 1) {
+                        mService.requestAction(mIdListNode, AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD);
+                    }
+                    else {
+                        int differenceFromLast = mLastListItemMapping.first -
+                                (mScrollingUp ? view.getFirstVisiblePosition() : view.getLastVisiblePosition());
+                        args.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_ROW_INT, mLastListItemMapping.second - differenceFromLast);
+                        mService.requestAction(mIdListNode, AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_TO_POSITION, args);
+                    }
+                }
+            }
+
+            @Override
+            public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
+            }
+        });
     }
 }

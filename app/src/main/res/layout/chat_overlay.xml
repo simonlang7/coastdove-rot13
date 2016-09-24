@@ -10,7 +10,8 @@
         android:layout_height="wrap_content"
         android:text="Load previous"
         android:id="@+id/button_load_previous"
-        android:layout_gravity="center_horizontal" />
+        android:layout_gravity="center_horizontal"
+        android:visibility="gone" />
 
     <ListView
         android:layout_width="match_parent"
@@ -25,6 +26,7 @@
         android:layout_height="wrap_content"
         android:text="Load next"
         android:id="@+id/button_load_next"
-        android:layout_gravity="center_horizontal" />
+        android:layout_gravity="center_horizontal"
+        android:visibility="gone" />
 
 </LinearLayout>
