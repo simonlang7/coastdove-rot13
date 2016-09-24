@@ -8,7 +8,7 @@ import android.widget.ArrayAdapter;
 import java.util.ArrayList;
 
 /**
- *
+ * Unused, todo: clean up
  */
 public class LoadableListOverlay<T> implements LoaderManager.LoaderCallbacks<ArrayList<T>> {
 

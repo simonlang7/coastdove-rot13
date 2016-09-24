@@ -67,16 +67,9 @@ public class ChatOverlay extends Overlay {
         }
 
         mListAdapter.clear();
-//        mListAdapter.addAll(messages);
         for (int i = 0; i < mMessages.size(); ++i) {
             int key = mMessages.keyAt(i);
             mListAdapter.add(mMessages.get(key));
-//            Log.d("Message", key + ": " + mMessages.get(key).findNode(new ViewTreeNode.Filter() {
-//                @Override
-//                public boolean filter(ViewTreeNode viewTreeNode) {
-//                    return viewTreeNode.viewIDResourceName().endsWith("id/messageText");
-//                }
-//            }).text());
         }
         mLastListItemMapping = new Pair<>(mMessages.size() - 1, scrollPosition.getItemCount() - 1);
     }
