@@ -145,6 +145,7 @@ public class EncryptionService extends CoastDoveListenerService {
     @Override
     protected void onAppClosed() {
         mChatOverlay.remove();
+        mSendButtonOverlay.remove();
     }
 
     @Override
